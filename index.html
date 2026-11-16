@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Observatorio de Encuestas • UNAB El Salvador</title>
+  
+  <!-- Persistencia Inmediata de Tema (Anti-FOUC) -->
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('unab_theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    })();
+  </script>
+  
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" defer></script>
+  <script src="engine/PsychometricsEngine.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <!-- CABECERA INSTITUCIONAL MINIMALISTA -->
+  <header class="topbar">
+    <div class="topbar-brand" id="brand-home-link">
+      <img src="https://lh3.googleusercontent.com/d/1x1N33LJLDpR9kndTv7c-u2aCvXnwTLNw" alt="Universidad Dr. Andrés Bello" class="unab-logo-img" onerror="this.onerror=null; this.src='https://drive.google.com/uc?export=view&amp;id=1x1N33LJLDpR9kndTv7c-u2aCvXnwTLNw';" />
+      <div class="brand-text-block">
+        <span class="brand-inst-name">UNAB • Investigación</span>
+        <span class="brand-inst-sub">Observatorio de Encuestas &amp; Resultados</span>
+      </div>
+    </div>
+    
+    <div class="topbar-controls">
+      <!-- Selector oculto mantenido para compatibilidad de pruebas -->
+      <select id="group-selector" style="display:none;" aria-label="Selector de Grupo Interno"></select>
+      <select id="role-selector" style="display:none;" aria-label="Rol Interno">
+        <option value="docente_admin">Docente</option>
+        <option value="team_member">Estudiante</option>
+      </select>
+      
+      <!-- Indicador de grupo activo si ya se seleccionó -->
+      <span id="header-active-group-chip" class="wizard-step-badge hidden">Grupo —</span>
+
+      <!-- Botón de Alternancia de Tema (Claro / Oscuro) con Persistencia -->
+      <button id="theme-toggle" class="btn-hero-secondary" type="button" title="Cambiar entre modo claro y oscuro">
+        <span id="theme-icon">🌙</span>
+        <span id="theme-text">Modo Oscuro</span>
+      </button>
+
+      <!-- Botón de Acceso / Salir -->
+      <button id="btn-user-session" class="btn-hero-secondary" type="button">
+        <span>👤</span>
+        <span id="user-session-label">Mi Cuenta</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- BARRA DE NAVEGACIÓN PROGRESIVA POR PASOS -->
+  <nav class="wizard-progress-bar" id="wizard-progress-bar" aria-label="Pasos de la visita guiada">
+    <button type="button" class="wizard-step-pill is-active" id="pill-step-1" data-step="1">
+      <span>1</span> <span>Elegir Grupo</span>
+    </button>
+    <button type="button" class="wizard-step-pill is-disabled" id="pill-step-2" data-step="2">
+      <span>2</span> <span>Configuración, Mapeo &amp; Hipótesis</span>
+    </button>
+    <button type="button" class="wizard-step-pill is-disabled" id="pill-step-3" data-step="3">
+      <span>3</span> <span>Dashboard de Respuestas</span>
+    </button>
+    <button type="button" class="wizard-step-pill is-disabled" id="pill-step-4" data-step="4" style="display:none;">
+      <span>4</span> <span>Dashboard</span>
+    </button>
+    <button type="button" class="wizard-step-pill is-disabled" id="pill-step-5" data-step="5">
+      <span>4</span> <span>Métricas Avanzadas</span>
+    </button>
+  </nav>
+
+  <!-- ENTORNO PRINCIPAL GUIADO (PROGRESSIVE DISCLOSURE) -->
+  <main class="main-wrapper">
+    
+    <!-- PASO 1: SELECCIONAR GRUPO DE INVESTIGACIÓN -->
+    <section class="wizard-card" id="step-1-view">
+      <div class="wizard-card-header">
+        <span class="wizard-step-badge">Paso 1 de 3</span>
+        <h1 class="wizard-card-title">¿A qué equipo de investigación perteneces?</h1>
+        <p class="wizard-card-desc">Selecciona tu grupo para cargar el cuestionario correspondiente a tu temática de estudio.</p>
+      </div>
+
+      <div class="groups-selection-grid" id="groups-selection-grid">
+        <!-- Tarjetas dinámicas de los 13 grupos (G4 excluido) -->
+      </div>
+
+      <div style="text-align:center;margin-top:1.5rem;">
+        <button type="button" class="btn-hero-primary" id="btn-step-1-continue" disabled>
+          <span>Continuar con este equipo</span> &rarr;
+        </button>
+      </div>
+    </section>
+
+    <!-- PASO 2: CONFIGURACIÓN, MAPEO CONTRA DISEÑO ORIGINAL, DIMENSIONES E HIPÓTESIS (ETAPA UNIFICADA) -->
+    <section class="wizard-card hidden" id="step-2-view">
+      <div class="wizard-card-header">
+        <span class="wizard-step-badge">Paso 2 de 3</span>
+        <h1 class="wizard-card-title">Carga de Respuestas, Mapeo contra Diseño Original e Hipótesis</h1>
+        <p class="wizard-card-desc">Conecta las respuestas de tu encuesta. El sistema las emparejará automáticamente con el instrumento diseñado por tu equipo, permitiéndote asignar dimensiones, editar enunciados y formular tus hipótesis antes de abrir el dashboard.</p>
+      </div>
+
+      <!-- BLOQUE 1: CONEXIÓN Y CARGA DE DATOS -->
+      <label class="friendly-dropzone" id="friendly-dropzone" for="file-upload-input">
+        <input type="file" id="file-upload-input" accept=".csv,.xlsx,.tsv,.json" style="display:none;" />
+        <div class="dropzone-icon">📁</div>
+        <div class="dropzone-title">Haz clic aquí o arrastra tu archivo (CSV o Excel)</div>
+        <div class="dropzone-subtitle">Tus datos nunca se modifican en el origen y se analizan en modo solo lectura seguro.</div>
+      </label>
+
+      <div class="sheet-url-box">
+        <input type="url" id="gsheet-url-input" placeholder="O pega un enlace de Google Sheets: https://docs.google.com/..." style="flex:1;" />
+        <button type="button" class="btn-hero-secondary" id="btn-ingest-gsheet">Conectar Google Sheet</button>
+      </div>
+
+      <div style="text-align:center;margin-top:1.5rem;display:flex;align-items:center;justify-content:center;gap:1rem;flex-wrap:wrap;">
+        <button type="button" class="btn-hero-secondary" id="btn-load-sample-data">
+          💡 Usar respuestas de prueba de este grupo
+        </button>
+        <button type="button" class="btn-hero-secondary" id="btn-open-column-scoping">
+          🗺️ Modal de Mapeo de Columnas
+        </button>
+      </div>
+      <div id="ingest-status-msg" style="text-align:center;margin-top:.75rem;font-size:.9rem;font-weight:600;color:var(--accent-ok);"></div>
+
+      <!-- BLOQUE 2: MATRIZ DE MAPEO CONTRA DISEÑO ORIGINAL, ASIGNACIÓN DE DIMENSIONES Y EDICIÓN -->
+      <section class="unified-mapping-section hidden" id="unified-mapping-section" style="margin-top:2rem;">
+        <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:1.5rem;margin-bottom:1.5rem;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
+            <div>
+              <h3 style="margin:0;font-size:1.15rem;display:flex;align-items:center;gap:.5rem;">
+                <span>🗺️ Mapeo contra Diseño Original y Asignación de Dimensiones</span>
+              </h3>
+              <p style="margin:.3rem 0 0 0;font-size:.85rem;color:var(--text-muted);">
+                Cada columna del archivo se empareja con un ítem del instrumento diseñado. Puedes cambiar la dimensión, corregir la redacción del enunciado o excluir columnas calculadas.
+              </p>
+            </div>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+              <span class="badge-status-pill" id="unified-mapping-stats-pill" style="font-size:.8rem;padding:.35rem .75rem;border-radius:var(--radius-pill);background:var(--bg-card-subtle);border:1px solid var(--border-color);">
+                Detectadas: <strong id="mapping-detected-count">0</strong> | Asignadas: <strong id="mapping-assigned-count">0</strong> | Excluidas: <strong id="mapping-excluded-count">0</strong>
+              </span>
+              <button type="button" class="btn-hero-secondary" id="btn-unified-exclude-formulas" style="font-size:.8rem;padding:.35rem .75rem;">
+                🚫 Excluir Fórmulas de Excel
+              </button>
+              <button type="button" class="btn-hero-secondary" id="btn-unified-autodetect" style="font-size:.8rem;padding:.35rem .75rem;">
+                ⚡ Auto-emparejar
+              </button>
+            </div>
+          </div>
+
+          <div class="table-responsive-wrapper" style="overflow-x:auto;max-height:500px;border:1px solid var(--border-color);border-radius:var(--radius-sm);">
+            <table class="unified-mapping-table" style="width:100%;border-collapse:collapse;font-size:.85rem;">
+              <thead style="position:sticky;top:0;background:var(--bg-surface-elevated);z-index:3;border-bottom:2px solid var(--border-color);">
+                <tr>
+                  <th style="padding:.75rem;text-align:left;min-width:170px;">Columna en Archivo</th>
+                  <th style="padding:.75rem;text-align:left;min-width:200px;">Ítem del Diseño Matriz</th>
+                  <th style="padding:.75rem;text-align:left;min-width:180px;">Dimensión / Constructo (Asignar)</th>
+                  <th style="padding:.75rem;text-align:left;min-width:260px;">Redacción del Enunciado (Editable)</th>
+                  <th style="padding:.75rem;text-align:center;min-width:80px;">Incluir</th>
+                </tr>
+              </thead>
+              <tbody id="unified-mapping-tbody">
+                <!-- Se puebla dinámicamente -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- BLOQUE 3: RESUMEN DIAGNÓSTICO RÁPIDO & ASISTENTE GEMINI AI -->
+        <div class="diagnostic-summary-grid" style="margin-bottom:1.5rem;">
+          <div class="diagnostic-kpi-card">
+            <div class="diagnostic-kpi-icon">📝</div>
+            <div class="diagnostic-kpi-val" id="diag-total-questions">0</div>
+            <div class="diagnostic-kpi-label">Preguntas analizadas</div>
+          </div>
+          <div class="diagnostic-kpi-card">
+            <div class="diagnostic-kpi-icon">👥</div>
+            <div class="diagnostic-kpi-val" id="diag-sample-size">0</div>
+            <div class="diagnostic-kpi-label">Personas encuestadas</div>
+          </div>
+          <div class="diagnostic-kpi-card">
+            <div class="diagnostic-kpi-icon" id="diag-status-icon">✅</div>
+            <div class="diagnostic-kpi-val" id="diag-status-title" style="font-size:1.15rem;color:var(--accent-ok);">Apto para Validar</div>
+            <div class="diagnostic-kpi-label" id="diag-status-sub">Cumple requisitos mínimos</div>
+          </div>
+        </div>
+
+        <!-- CONTENEDOR DE ALERTAS METODOLÓGICAS PSICOMÉTRICAS -->
+        <div id="methodological-warnings-container-step2" class="methodological-warnings-wrapper hidden"></div>
+        <div id="methodological-warnings-container-step3" class="methodological-warnings-wrapper hidden"></div>
+
+        <!-- ASISTENTE INTELIGENTE GEMINI AI -->
+        <article class="gemini-assistant-card" id="gemini-assistant-container" style="display:none !important;margin-bottom:1.5rem;">
+          <div class="gemini-card-header">
+            <div class="gemini-sparkle-icon">✨</div>
+            <div>
+              <h3 class="gemini-card-title">Asistente Inteligente Gemini AI</h3>
+              <p class="gemini-card-desc">¿Quieres que la inteligencia artificial revise la redacción de tus preguntas y te ayude a hacerlas 100% robustas?</p>
+            </div>
+          </div>
+
+          <div class="gemini-api-input-row">
+            <input type="password" id="gemini-api-key-input" placeholder="Pega tu clave de API de Gemini (opcional)..." style="flex:1;" />
+            <button type="button" class="btn-hero-primary" id="btn-call-gemini-repair">
+              <span>✨ Analizar y Mejorar Preguntas</span>
+            </button>
+          </div>
+          <div id="gemini-output-box" class="gemini-response-box hidden"></div>
+          <div id="gemini-apply-container" style="margin-top:.75rem;text-align:right;" class="hidden">
+            <button type="button" class="btn-hero-primary" id="btn-apply-gemini-improvements" style="font-size:.88rem;padding:.5rem 1.1rem;background:var(--accent-primary);">
+              <span>✨ Aplicar Mejoras al Cuestionario</span>
+            </button>
+          </div>
+        </article>
+
+        <!-- REGISTRO DE COMPAÑEROS DE EQUIPO -->
+        <article class="team-invite-card" style="margin-bottom:1.5rem;">
+          <h3 style="margin:0 0 .35rem 0;font-size:1.05rem;">👥 Invita a tus compañeros de equipo</h3>
+          <p style="margin:0 0 1rem 0;font-size:.85rem;color:var(--text-muted);">
+            Escribe los correos institucionales de los integrantes de tu grupo para que tengan acceso exclusivo a este panel:
+          </p>
+          <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
+            <input type="text" id="team-emails-input" placeholder="ejemplo1@unab.edu.sv, ejemplo2@unab.edu.sv" style="flex:1;min-width:260px;" />
+            <button type="button" class="btn-hero-secondary" id="btn-save-team-members">
+              <span>Enviar Notificaciones</span>
+            </button>
+          </div>
+          <div id="team-invite-feedback" style="margin-top:.5rem;font-size:.82rem;color:var(--accent-ok);"></div>
+        </article>
+
+        <!-- BLOQUE 4: FORMULACIÓN ESTRUCTURADA DE HIPÓTESIS (1 GENERAL + 2 A 3 ESPECÍFICAS) -->
+        <article class="hypotheses-card" id="hypotheses-setup-card" style="background:var(--bg-surface);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:1.5rem;margin-bottom:2rem;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem;">
+            <h3 style="margin:0;font-size:1.1rem;display:flex;align-items:center;gap:.4rem;">
+              <span>🔬 Hipótesis de Investigación (1 General + 2 a 3 Específicas)</span>
+              <button type="button" class="info-tooltip-btn" data-tooltip="Una hipótesis es una predicción sobre cómo una variable o dimensión influye en otra. El dashboard evaluará empíricamente cada hipótesis con r de Pearson, valor p y veredicto.">ℹ️</button>
+            </h3>
+            <button type="button" class="btn-hero-secondary" id="btn-suggest-hypotheses" style="font-size:.8rem;padding:.3rem .75rem;">
+              💡 Sugerir hipótesis según dimensiones
+            </button>
+          </div>
+          <p style="margin:0 0 1.25rem 0;font-size:.85rem;color:var(--text-muted);">
+            Define la hipótesis general de tu tesis y hasta tres hipótesis específicas. Puedes redactar los enunciados y mapear las variables predictora (X) y resultado (Y) de forma asistida por Gemini AI.
+          </p>
+
+          <!-- 1. HIPÓTESIS GENERAL (HG) -->
+          <div class="hypothesis-card-general" style="background:var(--bg-card-subtle);padding:1.25rem;border-radius:var(--radius-sm);border:1px solid var(--accent-primary);margin-bottom:1.5rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.5rem;">
+              <h4 style="margin:0;font-size:.95rem;color:var(--accent-primary);font-weight:700;">🎯 Hipótesis General (HG)</h4>
+              <span style="font-size:.76rem;color:var(--text-muted);">Relación global principal del estudio</span>
+            </div>
+            <label for="txt-hypothesis-general" style="font-size:.82rem;font-weight:700;display:block;margin-bottom:.35rem;">
+              Enunciado Literal de la Hipótesis General:
+            </label>
+            <textarea id="txt-hypothesis-general" rows="2" style="width:100%;box-sizing:border-box;border-radius:var(--radius-sm);padding:.5rem;background:var(--bg-input);color:var(--text-main);border:1px solid var(--border-color);font-size:.85rem;resize:vertical;" placeholder="Ejemplo: 'A mayor nivel de competencia digital docente, mayor será la eficacia pedagógica percibida en las aulas universitarias.'"></textarea>
+            <!-- Espejo de compatibilidad para selector step3 -->
+            <textarea id="txt-hypothesis-statement-step3" style="display:none;"></textarea>
+
+            <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end;margin-top:.75rem;">
+              <div style="flex:1;min-width:180px;">
+                <label for="hyp-general-x" style="font-size:.76rem;font-weight:700;display:block;margin-bottom:.2rem;">Variable Predictora (X):</label>
+                <select id="hyp-general-x" class="form-select-sm" style="width:100%;padding:.4rem;border-radius:4px;background:var(--bg-input);color:var(--text-main);border:1px solid var(--border-color);"></select>
+              </div>
+              <div style="flex:1;min-width:180px;">
+                <label for="hyp-general-y" style="font-size:.76rem;font-weight:700;display:block;margin-bottom:.2rem;">Variable Resultado (Y):</label>
+                <select id="hyp-general-y" class="form-select-sm" style="width:100%;padding:.4rem;border-radius:4px;background:var(--bg-input);color:var(--text-main);border:1px solid var(--border-color);"></select>
+              </div>
+              <button type="button" class="btn-hero-primary" id="btn-map-hypothesis-gemini-step3" style="display:none !important;padding:.4rem 1rem;font-size:.82rem;">
+                <span>✨ Mapear con Gemini AI</span>
+              </button>
+            </div>
+            <div id="gemini-hypothesis-status-step3" style="margin-top:.4rem;font-size:.8rem;color:var(--text-muted);"></div>
+            <div id="hypothesis-gemini-result-card-step3" class="hypothesis-gemini-result-card hidden" style="margin-top:.75rem;"></div>
+          </div>
+
+          <!-- 2. HIPÓTESIS ESPECÍFICAS (HE) (1 A 3) -->
+          <div class="specific-hypotheses-wrapper">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+              <h4 style="margin:0;font-size:.95rem;color:var(--text-primary);font-weight:700;">🔬 Hipótesis Específicas (1 a 3)</h4>
+              <button type="button" class="btn-hero-secondary" id="btn-add-specific-hypothesis" style="font-size:.8rem;padding:.3rem .75rem;">
+                ➕ Agregar Hipótesis Específica
+              </button>
+            </div>
+            <div id="specific-hypotheses-list" style="display:flex;flex-direction:column;gap:.75rem;">
+              <!-- Se pueblan dinámicamente -->
+            </div>
+          </div>
+
+          <!-- Compatibilidad de selectores clásicos de hipótesis -->
+          <div style="display:none;">
+            <select id="hyp-x-dim"></select>
+            <select id="hyp-y-dim"></select>
+            <button type="button" id="btn-add-hypothesis"></button>
+            <div id="hypotheses-list-container"></div>
+          </div>
+        </article>
+
+        <!-- BOTÓN PRINCIPAL DE AVANCE AL DASHBOARD -->
+        <div style="text-align:center;margin-top:2.5rem;display:flex;justify-content:center;gap:1rem;flex-wrap:wrap;">
+          <button type="button" class="btn-hero-primary" id="btn-confirm-and-go-to-dashboard" style="font-size:1.15rem;padding:1rem 2.5rem;">
+            <span>Confirmar Configuración y Ver Resultados en el Dashboard</span> &rarr;
+          </button>
+          <button type="button" id="btn-step-2-continue" style="display:none;"></button>
+          <button type="button" id="btn-step-3-to-dashboard" style="display:none;"></button>
+        </div>
+      </section>
+    </section>
+
+    <!-- PASO 3 LEGADO / ALIAS INVISIBLE -->
+    <section class="wizard-card hidden" id="step-3-view" style="display:none !important;"></section>
+
+    <!-- PASO 4: DASHBOARD PRIORITARIO DE PREGUNTAS Y RESPUESTAS -->
+    <section class="wizard-card hidden" id="step-4-view">
+      <!-- BANNER DE FILTRADO CRUZADO ACTIVO (CROSS-FILTERING BANNER) -->
+      <aside class="dashboard-crossfilter-banner hidden" id="dashboard-crossfilter-banner" aria-live="polite">
+        <div style="display:flex;align-items:flex-start;gap:.75rem;flex:1;">
+          <span style="font-size:1.4rem;line-height:1;">⚡</span>
+          <div style="flex:1;">
+            <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">
+              <span style="font-weight:700;font-size:.92rem;color:var(--text-primary);" id="crossfilter-banner-title">
+                Filtros Cruzados Activos:
+              </span>
+              <span id="crossfilter-banner-text" style="display:none;"></span>
+              <div id="crossfilter-chips-container" style="display:inline-flex;gap:.4rem;flex-wrap:wrap;align-items:center;"></div>
+            </div>
+            <div style="font-size:.78rem;color:var(--text-muted);margin-top:.25rem;" id="crossfilter-banner-sub">
+              Mostrando distribución condicionada para este subconjunto de encuestados.
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:.6rem;">
+          <button type="button" class="btn-hero-secondary" id="btn-clear-crossfilter" style="font-size:.8rem;padding:.35rem .75rem;border-color:var(--accent-warn);color:var(--accent-warn);">
+            <span>Limpiar Filtros ✕</span>
+          </button>
+        </div>
+      </aside>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
+        <div>
+          <span class="wizard-step-badge">Resultados de Encuesta</span>
+          <div style="display:flex;align-items:center;gap:.5rem;">
+            <h1 class="wizard-card-title" id="dash-group-title" style="margin-bottom:.2rem;">Dashboard de Preguntas y Respuestas</h1>
+            <button type="button" class="info-tooltip-btn" id="btn-tooltip-dashboard" data-tooltip="En este panel puedes ver la distribución de respuestas para cada pregunta. A la izquierda tienes la tabla de frecuencias (35%) y a la derecha la gráfica correspondiente (65%), la cual puedes personalizar según el tipo de datos.">ℹ️</button>
+          </div>
+          <p class="wizard-card-desc" id="dash-group-subtitle">Visualiza cómo respondió tu muestra a cada reactivo del cuestionario.</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">
+          <button type="button" class="btn-hero-secondary" id="btn-toggle-advanced-stats">
+            <span>🎯 Ver Validación Psicométrica Completa</span>
+          </button>
+          <button type="button" class="btn-hero-secondary" id="btn-open-instrument-editor" style="border-color:var(--accent-primary);color:var(--accent-primary);font-weight:700;">
+            <span>✏️ Editar Instrumento</span>
+          </button>
+          <div class="chart-controls-box" style="display:flex;align-items:center;gap:.4rem;background:var(--bg-card-subtle);padding:.35rem .6rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);">
+            <label for="chart-type-select" style="font-size:.78rem;font-weight:700;color:var(--text-muted);margin:0;">Gráfica:</label>
+            <select id="chart-type-select" style="padding:.2rem .4rem;font-size:.8rem;border-radius:4px;background:var(--bg-input);color:var(--text-main);border:1px solid var(--border-color);">
+              <option value="likert-segmented">Barra Continua</option>
+              <option value="vertical-bars">Barras por Opción</option>
+              <option value="donut-pie">Gráfico de Pastel</option>
+            </select>
+            <label for="chart-palette-select" style="font-size:.78rem;font-weight:700;color:var(--text-muted);margin:0;margin-left:.25rem;">Color:</label>
+            <select id="chart-palette-select" style="padding:.2rem .4rem;font-size:.8rem;border-radius:4px;background:var(--bg-input);color:var(--text-main);border:1px solid var(--border-color);">
+              <option value="unab-indigo">UNAB Clásico</option>
+              <option value="emerald-mint">Esmeralda Menta</option>
+              <option value="ocean-cyan">Océano Cyan</option>
+              <option value="sunset-amber">Atardecer Ámbar</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Barra de Filtro y Búsqueda -->
+      <div class="dashboard-search-bar">
+        <input type="text" id="dashboard-search-input" class="dashboard-search-input" placeholder="🔍 Escribe una palabra clave para buscar entre las preguntas..." />
+        <select id="dashboard-dimension-filter" style="min-width:180px;">
+          <option value="all">Todas las dimensiones</option>
+        </select>
+        <button type="button" class="btn-hero-secondary" id="btn-reset-filters">Limpiar</button>
+      </div>
+
+      <!-- Lista de Tarjetas de Preguntas Individuales -->
+      <div class="questions-display-grid" id="questions-display-grid">
+        <!-- Renderizado dinámico de tarjetas amigables -->
+      </div>
+    </section>
+
+    <!-- PANTALLA: EDICIÓN DEL CUESTIONARIO -->
+    <section class="wizard-card hidden" id="view-instrument-editor">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
+        <div>
+          <span class="wizard-step-badge">Personalización del Estudio</span>
+          <h2 class="wizard-card-title" style="margin-bottom:.2rem;">Edición del Cuestionario</h2>
+          <p class="wizard-card-desc">Ajusta la organización de preguntas, dimensiones y escalas de tu encuesta con verificación automática de requisitos psicométricos.</p>
+        </div>
+        <button type="button" class="btn-hero-secondary" id="btn-back-from-editor">
+          &larr; <span>Volver al Dashboard</span>
+        </button>
+      </div>
+
+      <!-- Organización por Dimensiones -->
+      <div style="background:var(--bg-surface);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:1.5rem;margin-bottom:1.5rem;">
+        <h3 style="margin:0 0 .5rem 0;font-size:1.05rem;display:flex;align-items:center;gap:.4rem;">
+          <span>📁 Organización por Dimensiones</span>
+          <button type="button" class="info-tooltip-btn" data-tooltip="Cada dimensión representa un tema o variable de tu investigación. Para poder calcular la fiabilidad (Alfa y Omega) y hacer análisis factorial, se recomienda que cada dimensión tenga al menos 3 preguntas.">ℹ️</button>
+        </h3>
+        <p style="font-size:.85rem;color:var(--text-muted);margin:0 0 1rem 0;">Revisa la distribución de preguntas por cada dimensión de tu estudio:</p>
+        <div id="editor-dimensions-list" style="display:flex;flex-direction:column;gap:1rem;"></div>
+      </div>
+
+      <!-- Escala y Opciones -->
+      <div style="background:var(--bg-surface);border:1px solid var(--border-color);border-radius:14px;padding:1.5rem;margin-bottom:1.5rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:.5rem;">
+          <h3 style="margin:0;font-size:1.05rem;display:flex;align-items:center;gap:.4rem;">
+            <span>⚖️ Escala de Respuestas, Inclusión y Sentido de Preguntas</span>
+            <button type="button" class="info-tooltip-btn" data-tooltip="Si redactaste una pregunta en sentido contrario (por ejemplo, 'El servicio es deficiente' en una encuesta donde todo lo demás es positivo), márcala como invertida para que el sistema la califique adecuadamente sin dañar la coherencia de tus datos. También puedes utilizar las casillas 'Incluir en Dashboard / Análisis' para descartar ítems que no correspondan a la escala psicométrica principal.">ℹ️</button>
+          </h3>
+          <div style="display:flex;align-items:center;gap:.75rem;font-size:.82rem;">
+            <label style="display:inline-flex;align-items:center;gap:.4rem;cursor:pointer;color:var(--text-secondary);font-weight:600;">
+              <input type="checkbox" id="chk-toggle-all-items-inclusion" checked />
+              <span>Incluir todas en Dashboard / Análisis</span>
+            </label>
+          </div>
+        </div>
+        <p style="font-size:.85rem;color:var(--text-muted);margin:0 0 1rem 0;">Todas las preguntas reflectivas utilizan la escala estándar del 1 al 5. Puedes conmutar el sentido de aquellas redactadas negativamente o activar/desactivar la inclusión de cada ítem en el Dashboard y análisis:</p>
+        <div id="editor-items-table-container" style="max-height:380px;overflow-y:auto;border:1px solid var(--border-color);border-radius:10px;"></div>
+      </div>
+
+      <div style="text-align:center;margin-top:1.5rem;display:flex;justify-content:center;gap:1rem;flex-wrap:wrap;">
+        <button type="button" class="btn-hero-primary" id="btn-save-instrument-changes" style="padding:.9rem 2rem;font-size:1.05rem;">
+          <span>💾 Guardar Cambios y Actualizar Dashboard</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- PASO 5: VALIDACIÓN PSICOMÉTRICA AVANZADA (OPCIONAL) -->
+    <section class="wizard-card hidden" id="step-5-view">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
+        <div>
+          <span class="wizard-step-badge">Para Investigadores y Docentes</span>
+          <h2 class="wizard-card-title">Validación Psicométrica de Constructo</h2>
+          <p class="wizard-card-desc">Consistencia interna, adecuación factorial y ajuste del modelo con verificación de Oráculo R.</p>
+        </div>
+        <button type="button" class="btn-hero-primary" id="btn-back-to-dashboard">
+          &larr; <span>Volver al Dashboard de Preguntas</span>
+        </button>
+      </div>
+
+      <!-- ALERTAS METODOLÓGICAS PSICOMÉTRICAS (STEP 5) -->
+      <div id="methodological-warnings-container" class="methodological-warnings-wrapper hidden"></div>
+      <div id="psychometrics-warnings-container" class="methodological-warnings-wrapper hidden"></div>
+
+      <div class="diagnostic-summary-grid" id="advanced-stats-kpis">
+        <!-- Métricas α, ω, KMO, CFA -->
+      </div>
+
+      <div style="background:var(--bg-surface);border:1px solid var(--border-color);border-radius:14px;padding:1.5rem;margin-top:1.5rem;">
+        <h3 style="margin-top:0;">Tabla de Fiabilidad por Dimensión</h3>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:.9rem;" id="table-advanced-dimensions">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border-color);text-align:left;">
+                <th style="padding:.6rem;">Dimensión</th>
+                <th style="padding:.6rem;">Ítems</th>
+                <th style="padding:.6rem;">Alfa de Cronbach (α)</th>
+                <th style="padding:.6rem;">Omega de McDonald (ω)</th>
+                <th style="padding:.6rem;">Estado</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-advanced-dimensions"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SECCIÓN DE COMPROBACIÓN EMPÍRICA DE HIPÓTESIS -->
+      <div style="background:var(--bg-surface);border:1px solid var(--border-color);border-radius:14px;padding:1.5rem;margin-top:1.5rem;" id="hypotheses-results-section">
+        <h3 style="margin-top:0;display:flex;align-items:center;gap:.4rem;">
+          <span>🔬 Comprobación Empírica de Hipótesis</span>
+          <button type="button" class="info-tooltip-btn" data-tooltip="Comprueba si las hipótesis que planteó tu equipo se cumplen en la realidad mediante correlaciones y regresiones estadísticas (con p < 0.05). Te muestra la conclusión en lenguaje cotidiano.">ℹ️</button>
+        </h3>
+        <p style="font-size:.85rem;color:var(--text-muted);margin:0 0 1rem 0;">Evaluación estadística de las relaciones esperadas entre dimensiones según las respuestas recopiladas:</p>
+
+        <!-- Mapeo Asistido de Hipótesis Literal con Gemini AI (Oculto - configurado previamente en Paso 2) -->
+        <div class="hypothesis-statement-box" style="display:none !important;margin-bottom:1.5rem;">
+          <label for="txt-hypothesis-statement" style="font-size:.88rem;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:.4rem;">
+            <span>✨ Pegar Enunciado Literal de tu Hipótesis:</span>
+            <span style="font-size:.76rem;font-weight:normal;color:var(--text-muted);">(Extracción de Variables X/Y con Gemini AI)</span>
+          </label>
+          <textarea id="txt-hypothesis-statement" rows="3" placeholder="Pega aquí la redacción literal de tu hipótesis desde tu paper o tesis. Ejemplo: 'A mayor nivel de competencia digital en docentes universitarios, mayor será la eficacia pedagógica percibida por los estudiantes.'"></textarea>
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem;margin-top:.5rem;">
+            <span id="gemini-hypothesis-status" style="font-size:.82rem;color:var(--text-muted);"></span>
+            <button type="button" class="btn-hero-primary" id="btn-map-hypothesis-gemini" style="padding:.5rem 1.25rem;font-size:.88rem;">
+              <span>✨ Mapear con Gemini</span>
+            </button>
+          </div>
+
+          <!-- Tarjeta de Resultado del Mapeo de Hipótesis -->
+          <div id="hypothesis-gemini-result-card" class="hyp-result-card hidden" style="margin-top:.75rem;border-color:var(--accent-primary);background:rgba(99, 102, 241, 0.05);border-radius:12px;padding:1.15rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;">
+              <span class="hyp-badge-ok" id="hyp-gemini-confidence-badge">Mapeo Estructurado (Gemini 2.5)</span>
+              <span style="font-size:.8rem;color:var(--text-muted);font-weight:600;" id="hyp-gemini-direction-tag">Relación Positiva Directa (+)</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:.85rem;margin-top:.75rem;font-size:.85rem;">
+              <div style="background:var(--bg-surface);padding:.75rem 1rem;border-radius:10px;border:1px solid var(--border-color);">
+                <div style="color:var(--accent-primary);font-weight:800;font-size:.78rem;text-transform:uppercase;margin-bottom:.25rem;">Variable Independiente (X)</div>
+                <div id="hyp-gemini-var-x" style="font-weight:700;color:var(--text-primary);font-size:.95rem;">—</div>
+                <div id="hyp-gemini-dim-x" style="color:var(--text-muted);font-size:.78rem;margin-top:.25rem;">Dimensión asignada: —</div>
+              </div>
+              <div style="background:var(--bg-surface);padding:.75rem 1rem;border-radius:10px;border:1px solid var(--border-color);">
+                <div style="color:var(--accent-secondary);font-weight:800;font-size:.78rem;text-transform:uppercase;margin-bottom:.25rem;">Variable Dependiente (Y)</div>
+                <div id="hyp-gemini-var-y" style="font-weight:700;color:var(--text-primary);font-size:.95rem;">—</div>
+                <div id="hyp-gemini-dim-y" style="color:var(--text-muted);font-size:.78rem;margin-top:.25rem;">Dimensión asignada: —</div>
+              </div>
+            </div>
+            <div style="text-align:right;margin-top:.75rem;">
+              <button type="button" class="btn-hero-secondary" id="btn-accept-gemini-hypothesis" style="font-size:.82rem;padding:.4rem .9rem;">
+                ➕ Agregar a Evaluación de Hipótesis
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="hypotheses-results-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:1rem;"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- VENTANA FLOTANTE PEDAGÓGICA (TOOLTIP ACCESIBLE) -->
+  <div class="info-tooltip-popup hidden" id="info-tooltip-popup" role="tooltip"></div>
+
+  <!-- MODAL DE ACCESO / CUENTA INSTITUCIONAL -->
+  <div class="modal-backdrop hidden" id="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+    <div class="modal-dialog">
+      <div style="text-align:center;margin-bottom:1.5rem;">
+        <img src="https://lh3.googleusercontent.com/d/1x1N33LJLDpR9kndTv7c-u2aCvXnwTLNw" alt="UNAB" style="height:48px;margin-bottom:.5rem;" />
+        <h2 id="auth-modal-title" style="margin:0 0 .3rem 0;">Acceso Institucional</h2>
+        <p style="color:var(--text-muted);font-size:.88rem;margin:0;">Plataforma de Investigación Psicométrica UNAB</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:1rem;">
+        <button type="button" class="btn-hero-primary" id="btn-google-login-action" style="background:#ffffff;color:#1f2937;border:1px solid #d1d5db;">
+          <svg style="width:18px;height:18px;" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+          <span>Acceder con Cuenta de Google UNAB</span>
+        </button>
+
+        <div style="display:flex;align-items:center;gap:.75rem;color:var(--text-muted);font-size:.8rem;">
+          <div style="flex:1;height:1px;background:var(--border-color);"></div>
+          <span>O acceso rápido para pruebas</span>
+          <div style="flex:1;height:1px;background:var(--border-color);"></div>
+        </div>
+
+        <button type="button" class="btn-hero-secondary" id="btn-quick-student-login">
+          👤 Continuar como Estudiante del Equipo
+        </button>
+        <button type="button" class="btn-hero-secondary" id="btn-quick-admin-login">
+          ⚡ Continuar como Docente / Administrador
+        </button>
+      </div>
+
+      <div style="text-align:center;margin-top:1.5rem;">
+        <button type="button" class="btn-hero-secondary" id="btn-close-auth-modal" style="font-size:.82rem;">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE MAPEO Y ALCANCE DE COLUMNAS (STEP 2 COLUMN SCOPING) -->
+  <div class="modal-backdrop hidden" id="modal-column-scoping" role="dialog" aria-modal="true" aria-labelledby="modal-column-scoping-title">
+    <div class="modal-dialog modal-dialog-large">
+      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-color);padding-bottom:1rem;margin-bottom:1.25rem;">
+        <div style="display:flex;align-items:center;gap:.75rem;">
+          <span style="font-size:1.6rem;">🗺️</span>
+          <div>
+            <h2 id="modal-column-scoping-title" style="margin:0;font-size:1.35rem;font-weight:800;color:var(--text-primary);">Mapeo y Alcance de Columnas del Archivo</h2>
+            <p style="margin:0;font-size:.84rem;color:var(--text-muted);">Asocia las columnas de tu Excel/CSV con los reactivos del instrumento y excluye fórmulas o metadatos.</p>
+          </div>
+        </div>
+        <button type="button" class="btn-hero-secondary" id="btn-close-column-scoping" style="padding:.35rem .75rem;font-size:.85rem;">✕</button>
+      </div>
+
+      <div class="column-scoping-summary" style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-surface);border:1px solid var(--border-color);border-radius:12px;padding:.85rem 1.15rem;margin-bottom:1rem;font-size:.85rem;flex-wrap:wrap;gap:.75rem;">
+        <div>
+          <span>Columnas detectadas en archivo: <strong id="scoping-detected-cols-count">0</strong></span>
+          <span style="margin:0 .5rem;color:var(--text-muted);">•</span>
+          <span>Columnas excluidas: <strong id="scoping-excluded-cols-count" style="color:var(--accent-warn);">0</strong></span>
+        </div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+          <button type="button" class="btn-hero-secondary" id="btn-scoping-auto-detect" style="font-size:.78rem;padding:.3rem .65rem;">🪄 Auto-detectar</button>
+          <button type="button" class="btn-hero-secondary" id="btn-scoping-exclude-formulas" style="font-size:.78rem;padding:.3rem .65rem;">🚫 Excluir SUMA/PROMEDIO</button>
+        </div>
+      </div>
+
+      <div style="max-height:360px;overflow-y:auto;border:1px solid var(--border-color);border-radius:10px;margin-bottom:1.25rem;">
+        <table class="column-scoping-table" style="width:100%;border-collapse:collapse;font-size:.82rem;">
+          <thead>
+            <tr style="background:var(--bg-card-subtle);text-align:left;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--border-color);">
+              <th style="padding:.65rem .85rem;">Columna en Archivo</th>
+              <th style="padding:.65rem .85rem;">Tipo / Muestra</th>
+              <th style="padding:.65rem .85rem;">Asignar a Reactivo</th>
+              <th style="padding:.65rem .85rem;text-align:center;">Estado</th>
+              <th style="padding:.65rem .85rem;text-align:center;">Excluir</th>
+            </tr>
+          </thead>
+          <tbody id="column-scoping-tbody">
+            <!-- Rellenado dinámico por app.js -->
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--border-color);padding-top:1.15rem;flex-wrap:wrap;gap:.75rem;">
+        <span style="font-size:.8rem;color:var(--text-muted);">
+          ℹ️ Columnas como <code>Marca temporal</code>, <code>SUMA</code>, <code>PROMEDIO</code> o totales calculados deben quedar excluidas para no sesgar Alfa y Omega.
+        </span>
+        <div style="display:flex;gap:.75rem;">
+          <button type="button" class="btn-hero-secondary" id="btn-cancel-column-scoping">Cancelar</button>
+          <button type="button" class="btn-hero-primary" id="btn-confirm-column-scoping">
+            <span>Confirmar Mapeo y Proceder</span> &rarr;
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
