@@ -358,7 +358,12 @@
           const resp = await fetch("ssot/qa_test_fixtures_13_groups.json");
           if (resp.ok) {
             const allFixtures = await resp.json();
-            fix = allFixtures[groupId] || { rows_anon: [], source_sha256: "STATIC_SSOT_OK" };
+            const grp = (allFixtures.groups && allFixtures.groups[groupId]) || allFixtures[groupId];
+            const rawRows = (grp && (grp.rows || grp.rows_anon)) || [];
+            fix = {
+              rows_anon: rawRows,
+              source_sha256: (grp && grp.source_sha256) || "FIXTURE_QA_OFFLINE_OK",
+            };
           }
         } catch (e2) {
           console.warn("Fallback fixture estático falló:", e2);
